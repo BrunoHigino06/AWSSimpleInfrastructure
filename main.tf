@@ -1,7 +1,7 @@
 provider "aws" {
   region     = "us-east-1"
-  access_key = "my-access-key"
-  secret_key = "my-secret-key"
+  access_key = "AKIA5TW7O3UYE6XF3ZHS"
+  secret_key = "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"
 }
 #Network
 resource "aws_default_vpc" "default" {
@@ -58,7 +58,7 @@ resource "aws_security_group" "FrontEndSG" {
   vpc_id      = aws_default_vpc.default.id  
 }
 
-resource "aws_security_group_rule" "AllowAllIngressELB" {
+resource "aws_security_group_rule" "AllowAllIngressFrontEnd" {
   type              = "ingress"
   from_port         = 0
   to_port           = 65535
@@ -67,7 +67,7 @@ resource "aws_security_group_rule" "AllowAllIngressELB" {
   security_group_id = aws_security_group.FrontEndSG.id
 }
 
-resource "aws_security_group_rule" "AllowAllEgressELB" {
+resource "aws_security_group_rule" "AllowAllEgressFrontEnd" {
   type              = "egress"
   from_port         = 0
   to_port           = 65535
@@ -96,7 +96,7 @@ data "aws_ami" "ubuntu" {
   most_recent = true
 }
 
-resource "aws_instance" "FrontEnd" {
+resource "aws_instance" "FrontEnd1" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
   security_groups = [aws_security_group.FrontEndSG.id]
@@ -108,13 +108,13 @@ resource "aws_instance" "FrontEnd" {
   }
 }
 
-resource "aws_instance" "FrontEnd" {
+resource "aws_instance" "FrontEnd2" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
   security_groups = [aws_security_group.FrontEndSG.id]
   subnet_id = [aws_default_subnet.default_az2]
   user_data = "${file("installnginx.sh")}"
-  
+
   tags = {
     Name = "FrontEnd2"
   }
