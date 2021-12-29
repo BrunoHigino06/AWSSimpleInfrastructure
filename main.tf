@@ -50,32 +50,6 @@ resource "aws_security_group_rule" "AllowAllEgressELB" {
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.ELBSG.id
 }
-
-#FrontEndSG
-resource "aws_security_group" "FrontEndSG" {
-  name        = "FrontEndSG"
-  description = "FrontEndSG"
-  vpc_id      = aws_default_vpc.default.id  
-}
-
-resource "aws_security_group_rule" "AllowAllIngressFrontEnd" {
-  type              = "ingress"
-  from_port         = 0
-  to_port           = 65535
-  protocol          = "all"
-  cidr_blocks       = [aws_default_subnet.default_az1.cidr_block, aws_default_subnet.default_az2.cidr_block]
-  security_group_id = aws_security_group.FrontEndSG.id
-}
-
-resource "aws_security_group_rule" "AllowAllEgressFrontEnd" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 65535
-  protocol          = "all"
-  cidr_blocks       = [aws_default_subnet.default_az1.cidr_block, aws_default_subnet.default_az2.cidr_block]
-  security_group_id = aws_security_group.FrontEndSG.id
-}
-
 # Instances
 
 resource "aws_instance" "FrontEnd1" {
