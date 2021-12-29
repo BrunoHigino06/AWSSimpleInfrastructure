@@ -1,7 +1,7 @@
 provider "aws" {
   region     = "us-east-1"
-  access_key = "AKIA5TW7O3UYE6XF3ZHS"
-  secret_key = "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"
+  access_key = ""
+  secret_key = ""
 }
 #Network
 resource "aws_default_vpc" "default" {
@@ -63,7 +63,7 @@ resource "aws_security_group_rule" "AllowAllIngressFrontEnd" {
   from_port         = 0
   to_port           = 65535
   protocol          = "all"
-  cidr_blocks       = [aws_security_group.ELBSG.cidr_blocks]
+  cidr_blocks       = [aws_default_subnet.default_az1.cidr_block, aws_default_subnet.default_az2.cidr_block]
   security_group_id = aws_security_group.FrontEndSG.id
 }
 
@@ -72,50 +72,85 @@ resource "aws_security_group_rule" "AllowAllEgressFrontEnd" {
   from_port         = 0
   to_port           = 65535
   protocol          = "all"
-  cidr_blocks       = [aws_security_group.ELBSG.cidr_blocks]
+  cidr_blocks       = [aws_default_subnet.default_az1.cidr_block, aws_default_subnet.default_az2.cidr_block]
   security_group_id = aws_security_group.FrontEndSG.id
 }
 
-# ELB
+# Instances
 
-resource "aws_lb" "FronEndELB" {
-  name               = "FronEndELB"
+resource "aws_instance" "FrontEnd1" {
+  ami           = "ami-0ed9277fb7eb570c9"
+  instance_type = "t3.micro"
+  security_groups = [aws_security_group.ELBSG.id]
+  subnet_id = aws_default_subnet.default_az1.id
+  associate_public_ip_address = true
+  user_data = "${file("installnginx.sh")}"
+
+  tags = {
+    Name = "FrontEnd1"
+  }
+  depends_on = [
+    aws_default_subnet.default_az1,
+  ]
+}
+
+resource "aws_instance" "FrontEnd2" {
+  ami           = "ami-0ed9277fb7eb570c9"
+  instance_type = "t3.micro"
+  security_groups = [aws_security_group.ELBSG.id]
+  subnet_id = aws_default_subnet.default_az2.id
+  associate_public_ip_address = true
+  user_data = "${file("installnginx.sh")}"
+
+  tags = {
+    Name = "FrontEnd2"
+  }
+    depends_on = [
+    aws_default_subnet.default_az2,
+  ]
+}
+
+# Target Group
+
+resource "aws_lb_target_group" "FrontEndTG" {
+  name     = "FrontEndTG"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_default_vpc.default.id
+}
+
+resource "aws_lb_target_group_attachment" "TGAttachmentFrontEnd1" {
+  target_group_arn = aws_lb_target_group.FrontEndTG.arn
+  target_id        = aws_instance.FrontEnd1.id
+  port             = 80
+}
+
+resource "aws_lb_target_group_attachment" "TGAttachmentFrontEnd2" {
+  target_group_arn = aws_lb_target_group.FrontEndTG.arn
+  target_id        = aws_instance.FrontEnd2.id
+  port             = 80
+}
+
+resource "aws_lb" "FrontEndELB" {
+  name               = "FrontEndELB"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.ELBSG.id]
-  subnets            = [aws_default_subnet.default_az1, aws_default_subnet.default_az1]
+  subnets            = [aws_default_subnet.default_az1.id, aws_default_subnet.default_az2.id]
 
   tags = {
     Environment = "production"
   }
 }
 
-# Instances
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = aws_lb.FrontEndELB.arn
+  port              = "80"
+  protocol          = "HTTP"
+  
 
-data "aws_ami" "ubuntu" {
-  most_recent = true
-}
-
-resource "aws_instance" "FrontEnd1" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.micro"
-  security_groups = [aws_security_group.FrontEndSG.id]
-  subnet_id = [aws_default_subnet.default_az1]
-  user_data = "${file("installnginx.sh")}"
-
-  tags = {
-    Name = "FrontEnd1"
-  }
-}
-
-resource "aws_instance" "FrontEnd2" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.micro"
-  security_groups = [aws_security_group.FrontEndSG.id]
-  subnet_id = [aws_default_subnet.default_az2]
-  user_data = "${file("installnginx.sh")}"
-
-  tags = {
-    Name = "FrontEnd2"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.FrontEndTG.arn
   }
 }
